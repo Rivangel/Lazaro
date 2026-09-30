@@ -34,6 +34,13 @@ public static class ConfiguradorModelos
         CarpetaModelos + "/Characters_Shaun.fbx",
     };
 
+    //perros zombi: mas rapidos y con mejor oido que los humanos
+    public static readonly string[] ModelosPerro =
+    {
+        CarpetaModelos + "/Characters_GermanShepherd.fbx",
+        CarpetaModelos + "/Characters_Pug.fbx",
+    };
+
     //animaciones que deben repetirse mientras dure el estado; el resto se reproduce una vez
     static readonly string[] ClipsEnBucle = { "Idle", "Walk", "Run", "Crawl", "Eating" };
 
@@ -63,6 +70,11 @@ public static class ConfiguradorModelos
         CrearCarpetaControladores();
 
         CrearControladorJugador(ModeloJugador);
+        foreach (string ruta in ModelosPerro)
+        {
+            CrearControladorEnemigo(ruta);
+        }
+
         foreach (string ruta in ModelosZombie)
         {
             CrearControladorEnemigo(ruta);
@@ -423,7 +435,8 @@ public static class ConfiguradorModelos
     //Se salen de la muerte solo con el trigger Revivir, que dispara el script al reaparecer.
     static void AgregarGolpeYMuerte(AnimatorStateMachine maquina, AnimationClip[] clips, AnimatorState movimiento)
     {
-        AnimationClip clipGolpe = BuscarClip(clips, "HitReact");
+        //los perros llaman distinto a la reaccion al golpe
+        AnimationClip clipGolpe = BuscarClip(clips, "HitReact", "Idle_HitReact_Left", "Idle_HitReact_Right");
         if (clipGolpe != null)
         {
             AnimatorState golpe = maquina.AddState("Golpe");

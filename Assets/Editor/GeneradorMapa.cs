@@ -37,6 +37,9 @@ public class GeneradorMapa
     //cuantos zombies se crean y a que distancia del centro
     const int CantidadNpcs = 10;
 
+    //perros zombi: pocos, pero rapidos y con muy buen oido
+    const int CantidadPerros = 4;
+
     //altura que se usa solo si falta el FBX del personaje y hay que poner una capsula
     const float AlturaPersonajeSinModelo = 1.8f;
 
@@ -127,6 +130,7 @@ public class GeneradorMapa
         GameObject jugador = CrearJugador();
         CrearCamara(jugador.transform);
         CrearNpcs();
+        CrearPerros();
         CrearMision(mapa.transform);
         CrearControlPartida();
         CrearInterfaz(jugador.GetComponent<Vida>());
@@ -724,6 +728,66 @@ public class GeneradorMapa
             script.visualCurado = visualCurado;
             script.nombreCurado = System.IO.Path.GetFileNameWithoutExtension(rutaAliado).Replace("Characters_", "");
             script.sonidoCurado = CargarAudio("metal-slug-thank-you-tenkiu.mp3");
+        }
+    }
+
+    //Perros zombi. No se curan (el suero es para personas) y compensan al sigilo:
+    //oyen mucho mas lejos y corren mas que los zombies humanos.
+    static void CrearPerros()
+    {
+        GameObject contenedor = new GameObject("Perros");
+        Undo.RegisterCreatedObjectUndo(contenedor, "Generar Mapa");
+
+        Material material = ObtenerMaterial("mat_perro_mapa", new Color(0.5f, 0.45f, 0.3f));
+        string[] modelos = ConfiguradorModelos.ModelosPerro;
+
+        for (int i = 0; i < CantidadPerros; i++)
+        {
+            float angulo = (360f / CantidadPerros) * i + 45f;
+            float radio = tamanoMapa * 0.38f;
+            Vector3 posicion = Quaternion.Euler(0f, angulo, 0f) * new Vector3(0f, 0f, radio);
+            posicion.y = 0.1f;
+
+            string rutaModelo = modelos[i % modelos.Length];
+            string nombreCorto = System.IO.Path.GetFileNameWithoutExtension(rutaModelo).Replace("Characters_", "");
+
+            GameObject perro = new GameObject("Perro " + nombreCorto + " " + (i + 1));
+            perro.transform.SetParent(contenedor.transform);
+            perro.transform.position = posicion;
+
+            float altura;
+            CrearVisual(perro.transform, rutaModelo, material, out altura, "Visual", "");
+            AgregarControlador(perro, altura);
+
+            AudioSource audio = perro.AddComponent<AudioSource>();
+            audio.playOnAwake = false;
+            audio.spatialBlend = 1f;
+            audio.rolloffMode = AudioRolloffMode.Linear;
+            audio.maxDistance = 35f;
+
+            Vida vida = perro.AddComponent<Vida>();
+            //aguantan menos que un zombie, pero cuesta acertarles
+            vida.vidaMaxima = 2;
+            vida.tiempoDeGracia = 0.05f;
+            vida.fuenteAudio = audio;
+            vida.sonidoGolpe = CargarAudio("morrigan-hurt-2.mp3");
+            vida.sonidoMuerte = CargarAudio("sm64-mario-pain.mp3");
+
+            Npc script = perro.AddComponent<Npc>();
+            script.nombre = nombreCorto;
+            script.esEnemigo = true;
+            script.sePuedeCurar = false;
+
+            //mas rapidos que un humano y con mucho mejor oido
+            script.velocidad = 2f;
+            script.velocidadPersecucion = 6f;
+            script.velocidadInvestigando = 4f;
+            script.radioDeteccion = 14f;
+            script.radioPerdida = 22f;
+            script.tiempoParaOlvidar = 7f;
+            script.distanciaAtaque = 1.4f;
+            script.tiempoEntreAtaques = 1f;
+            script.radioPaseo = 12f;
         }
     }
 

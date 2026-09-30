@@ -60,6 +60,9 @@ public class Npc : MonoBehaviour
 
     [Header("Aliado")]
     //nombre y modelo del sobreviviente que aparece al curarlo
+    //los perros no se curan: el suero es para personas
+    public bool sePuedeCurar = true;
+
     public string nombreCurado = "Sobreviviente";
     public Transform visualCurado;
     public int vidaComoAliado = 5;
@@ -538,7 +541,8 @@ public class Npc : MonoBehaviour
     //lo llama el suero; devuelve false si no habia nada que curar
     public bool Curar()
     {
-        if (!esEnemigo || EstaMuerto) return false;
+        //los perros no son personas: el suero no les hace nada
+        if (!esEnemigo || EstaMuerto || !sePuedeCurar) return false;
 
         esEnemigo = false;
         CambiarVisual(true);
