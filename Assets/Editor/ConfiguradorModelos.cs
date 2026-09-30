@@ -78,6 +78,8 @@ public static class ConfiguradorModelos
         foreach (string ruta in ModelosZombie)
         {
             CrearControladorEnemigo(ruta);
+            //variante para los que van arrastrandose por el suelo
+            CrearControladorEnemigo(ruta, true);
         }
 
         //los aliados usan los mismos parametros que los zombies (moverse, atacar, golpe y
@@ -391,6 +393,11 @@ public static class ConfiguradorModelos
     //Enemigo: movimiento, ataque cuando alcanza al jugador, golpe y muerte
     static void CrearControladorEnemigo(string rutaModelo)
     {
+        CrearControladorEnemigo(rutaModelo, false);
+    }
+
+    static void CrearControladorEnemigo(string rutaModelo, bool arrastrandose)
+    {
         AnimationClip[] clips = CargarClips(rutaModelo);
         if (clips.Length == 0)
         {
@@ -398,7 +405,9 @@ public static class ConfiguradorModelos
             return;
         }
 
-        AnimatorController controlador = CrearControladorVacio(NombreControlador(rutaModelo));
+        string nombre = NombreControlador(rutaModelo) + (arrastrandose ? SufijoArrastrandose : "");
+
+        AnimatorController controlador = CrearControladorVacio(nombre);
         controlador.AddParameter("Velocidad", AnimatorControllerParameterType.Float);
         controlador.AddParameter("Atacando", AnimatorControllerParameterType.Bool);
         controlador.AddParameter("Golpe", AnimatorControllerParameterType.Trigger);
@@ -406,7 +415,7 @@ public static class ConfiguradorModelos
         controlador.AddParameter("Revivir", AnimatorControllerParameterType.Trigger);
 
         AnimatorStateMachine maquina = controlador.layers[0].stateMachine;
-        AnimatorState movimiento = CrearEstadoMovimiento(controlador, clips, false);
+        AnimatorState movimiento = CrearEstadoMovimiento(controlador, clips, false, arrastrandose);
         maquina.defaultState = movimiento;
 
         //no todos los zombies traen animacion de ataque, por eso las alternativas
@@ -477,11 +486,29 @@ public static class ConfiguradorModelos
     //arbol que mezcla quieto -> caminar -> correr con el parametro Velocidad
     static AnimatorState CrearEstadoMovimiento(AnimatorController controlador, AnimationClip[] clips, bool conArma)
     {
+        return CrearEstadoMovimiento(controlador, clips, conArma, false);
+    }
+
+    static AnimatorState CrearEstadoMovimiento(AnimatorController controlador, AnimationClip[] clips,
+                                               bool conArma, bool arrastrandose)
+    {
         BlendTree arbol;
         AnimatorState estado = controlador.CreateBlendTreeInController("Movimiento", out arbol, 0);
         arbol.blendType = BlendTreeType.Simple1D;
         arbol.blendParameter = "Velocidad";
         arbol.useAutomaticThresholds = false;
+
+        //arrastrandose no hay andar ni correr: Crawl sirve para todo el recorrido
+        if (arrastrandose)
+        {
+            AnimationClip gateo = BuscarClip(clips, "Crawl", "Walk", "Idle");
+            AnimationClip parado = BuscarClip(clips, "Crawl", "Idle");
+
+            if (parado != null) arbol.AddChild(parado, 0f);
+            if (gateo != null) arbol.AddChild(gateo, 0.5f);
+            if (gateo != null) arbol.AddChild(gateo, 1f);
+            return estado;
+        }
 
         //con arma se prefieren las variantes _Gun, que dejan al personaje apuntando
         AnimationClip quieto = conArma ? BuscarClip(clips, "Idle_Gun", "Idle") : BuscarClip(clips, "Idle");
@@ -550,12 +577,21 @@ public static class ConfiguradorModelos
         }
     }
 
+    //sufijo del controller de los zombies que se arrastran
+    public const string SufijoArrastrandose = "_Arrastrandose";
+
     public static string NombreControlador(string rutaModelo)
     {
         return "Controlador_" + Path.GetFileNameWithoutExtension(rutaModelo);
     }
 
     //devuelve el Animator Controller ya creado para ese modelo
+    public static RuntimeAnimatorController CargarControladorArrastrandose(string rutaModelo)
+    {
+        string ruta = CarpetaControladores + "/" + NombreControlador(rutaModelo) + SufijoArrastrandose + ".controller";
+        return AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(ruta);
+    }
+
     public static RuntimeAnimatorController CargarControlador(string rutaModelo)
     {
         string ruta = CarpetaControladores + "/" + NombreControlador(rutaModelo) + ".controller";

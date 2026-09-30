@@ -40,6 +40,9 @@ public class GeneradorMapa
     //perros zombi: pocos, pero rapidos y con muy buen oido
     const int CantidadPerros = 4;
 
+    //de cada cuantos zombies uno va arrastrandose por el suelo
+    const int UnoDeCadaSeArrastra = 3;
+
     //altura que se usa solo si falta el FBX del personaje y hay que poner una capsula
     const float AlturaPersonajeSinModelo = 1.8f;
 
@@ -725,10 +728,47 @@ public class GeneradorMapa
             script.nombre = nombreCorto;
             //ya persiguen al jugador; desmarcalo si los quieres pacificos
             script.esEnemigo = true;
+
+            //algunos van arrastrandose: lentos, pero pegados al suelo cuesta verlos
+            //entre los coches y no se distinguen de un cadaver hasta que se mueven
+            if (i % UnoDeCadaSeArrastra == 0)
+            {
+                PonerAArrastrarse(npc, script, rutaModelo);
+            }
             script.visualCurado = visualCurado;
             script.nombreCurado = System.IO.Path.GetFileNameWithoutExtension(rutaAliado).Replace("Characters_", "");
             script.sonidoCurado = CargarAudio("metal-slug-thank-you-tenkiu.mp3");
         }
+    }
+
+    //Cambia el zombie por su variante a ras de suelo: usa el controller con Crawl
+    //y se mueve mucho mas despacio, pero es dificil de ver a tiempo.
+    static void PonerAArrastrarse(GameObject npc, Npc script, string rutaModelo)
+    {
+        npc.name = npc.name + " (arrastrandose)";
+
+        RuntimeAnimatorController controlador = ConfiguradorModelos.CargarControladorArrastrandose(rutaModelo);
+        if (controlador == null)
+        {
+            Debug.LogWarning("Sin controller de arrastre para " + rutaModelo);
+            return;
+        }
+
+        Transform visual = npc.transform.Find("Visual");
+        if (visual == null) return;
+
+        Animator animador = visual.GetComponentInChildren<Animator>();
+        if (animador != null) animador.runtimeAnimatorController = controlador;
+
+        script.velocidad = 0.6f;
+        script.velocidadPersecucion = 1.6f;
+        script.velocidadInvestigando = 1f;
+        script.distanciaAtaque = 1.5f;
+
+        //tumbado ve peor de lejos, pero de cerca sorprende
+        script.radioDeteccion = 8f;
+        script.radioPerdida = 12f;
+        script.radioPaseo = 5f;
     }
 
     //Perros zombi. No se curan (el suero es para personas) y compensan al sigilo:
