@@ -304,6 +304,7 @@ public static class ConfiguradorModelos
         controlador.AddParameter("Morir", AnimatorControllerParameterType.Trigger);
         controlador.AddParameter("Revivir", AnimatorControllerParameterType.Trigger);
         controlador.AddParameter("Agachado", AnimatorControllerParameterType.Bool);
+        controlador.AddParameter("Golpear", AnimatorControllerParameterType.Trigger);
 
         AnimatorStateMachine maquina = controlador.layers[0].stateMachine;
         AnimatorState movimiento = CrearEstadoMovimiento(controlador, clips, true);
@@ -350,6 +351,25 @@ public static class ConfiguradorModelos
             aSuelo.exitTime = 0.25f;
             aSuelo.duration = 0.15f;
             aSuelo.AddCondition(AnimatorConditionMode.If, 0f, "EnSuelo");
+        }
+
+        //golpe cuerpo a cuerpo con el cuchillo
+        AnimationClip clipCuchillo = BuscarClip(clips, "Slash", "Stab", "Punch");
+        if (clipCuchillo != null)
+        {
+            AnimatorState golpear = maquina.AddState("Cuerpo a cuerpo");
+            golpear.motion = clipCuchillo;
+
+            AnimatorStateTransition aGolpear = movimiento.AddTransition(golpear);
+            aGolpear.hasExitTime = false;
+            aGolpear.duration = 0.05f;
+            aGolpear.AddCondition(AnimatorConditionMode.If, 0f, "Golpear");
+
+            //vuelve solo cuando termina la animacion del golpe
+            AnimatorStateTransition deGolpear = golpear.AddTransition(movimiento);
+            deGolpear.hasExitTime = true;
+            deGolpear.exitTime = 0.85f;
+            deGolpear.duration = 0.1f;
         }
 
         AgregarGolpeYMuerte(maquina, clips, movimiento);

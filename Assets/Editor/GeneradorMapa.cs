@@ -88,6 +88,9 @@ public class GeneradorMapa
     //cambia esto por "Rifle", "Shotgun" o "SMG" si quieres otra arma
     const string ArmaEquipada = "Pistol";
 
+    //arma blanca que el jugador saca solo al golpear de cerca
+    const string ArmaCuerpoACuerpo = "Knife";
+
     //piezas que hay que encontrar para reparar la camioneta: modelo, nombre y casilla
     static readonly string[] ModelosPieza = { "Wheel", "Barrel", "Pipes", "Chest_Special" };
     static readonly string[] NombresPieza = { "Rueda", "Bidon de gasolina", "Tubo de escape", "Caja de herramientas" };
@@ -652,6 +655,13 @@ public class GeneradorMapa
         disparo.prefabProyectil = ObtenerPrefabProyectil();
         //el trazo sale de la punta del arma que quedo equipada
         disparo.puntoDisparo = arma;
+
+        CuerpoACuerpo cuchillo = jugador.AddComponent<CuerpoACuerpo>();
+        cuchillo.fuenteAudio = audio;
+        cuchillo.sonidoGolpe = CargarAudio("bonk-meme.mp3");
+        cuchillo.armaDeFuego = arma;
+        //el cuchillo vive en la mano del modelo igual que la pistola
+        cuchillo.armaCuerpoACuerpo = BuscarHijo(jugador.transform, ArmaCuerpoACuerpo);
 
         return jugador;
     }
