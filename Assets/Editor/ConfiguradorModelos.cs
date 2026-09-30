@@ -26,6 +26,14 @@ public static class ConfiguradorModelos
         CarpetaModelos + "/Zombie_Ribcage.fbx",
     };
 
+    //sobrevivientes en los que se convierten los zombies al curarlos (Sam es el jugador)
+    public static readonly string[] ModelosAliado =
+    {
+        CarpetaModelos + "/Characters_Lis.fbx",
+        CarpetaModelos + "/Characters_Matt.fbx",
+        CarpetaModelos + "/Characters_Shaun.fbx",
+    };
+
     //animaciones que deben repetirse mientras dure el estado; el resto se reproduce una vez
     static readonly string[] ClipsEnBucle = { "Idle", "Walk", "Run", "Crawl", "Eating" };
 
@@ -56,6 +64,13 @@ public static class ConfiguradorModelos
 
         CrearControladorJugador(ModeloJugador);
         foreach (string ruta in ModelosZombie)
+        {
+            CrearControladorEnemigo(ruta);
+        }
+
+        //los aliados usan los mismos parametros que los zombies (moverse, atacar, golpe y
+        //muerte), asi el script del NPC no cambia al curarlos; de ataque sale el puñetazo
+        foreach (string ruta in ModelosAliado)
         {
             CrearControladorEnemigo(ruta);
         }
@@ -288,10 +303,35 @@ public static class ConfiguradorModelos
         controlador.AddParameter("Golpe", AnimatorControllerParameterType.Trigger);
         controlador.AddParameter("Morir", AnimatorControllerParameterType.Trigger);
         controlador.AddParameter("Revivir", AnimatorControllerParameterType.Trigger);
+        controlador.AddParameter("Agachado", AnimatorControllerParameterType.Bool);
 
         AnimatorStateMachine maquina = controlador.layers[0].stateMachine;
         AnimatorState movimiento = CrearEstadoMovimiento(controlador, clips, true);
         maquina.defaultState = movimiento;
+
+        //agachado y quieto se queda en cuclillas; si camina agachado usa la animacion de caminar
+        AnimationClip clipAgachado = BuscarClip(clips, "Duck");
+        if (clipAgachado != null)
+        {
+            AnimatorState agachado = maquina.AddState("Agachado");
+            agachado.motion = clipAgachado;
+
+            AnimatorStateTransition aAgachado = movimiento.AddTransition(agachado);
+            aAgachado.hasExitTime = false;
+            aAgachado.duration = 0.15f;
+            aAgachado.AddCondition(AnimatorConditionMode.If, 0f, "Agachado");
+            aAgachado.AddCondition(AnimatorConditionMode.Less, 0.1f, "Velocidad");
+
+            AnimatorStateTransition aLevantarse = agachado.AddTransition(movimiento);
+            aLevantarse.hasExitTime = false;
+            aLevantarse.duration = 0.15f;
+            aLevantarse.AddCondition(AnimatorConditionMode.IfNot, 0f, "Agachado");
+
+            AnimatorStateTransition aCaminar = agachado.AddTransition(movimiento);
+            aCaminar.hasExitTime = false;
+            aCaminar.duration = 0.15f;
+            aCaminar.AddCondition(AnimatorConditionMode.Greater, 0.1f, "Velocidad");
+        }
 
         AnimationClip clipSalto = BuscarClip(clips, "Jump_Idle", "Jump");
         if (clipSalto != null)
