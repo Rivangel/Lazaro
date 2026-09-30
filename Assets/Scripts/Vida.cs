@@ -21,6 +21,9 @@ public class Vida : MonoBehaviour
     public int VidaActual { get; private set; }
     public bool EstaMuerto { get { return VidaActual <= 0; } }
 
+    //quien dio el ultimo golpe; puede ser null si el daño no vino de nadie en concreto
+    public Transform UltimoAtacante { get; private set; }
+
     public float Porcentaje
     {
         get { return vidaMaxima > 0 ? (float)VidaActual / vidaMaxima : 0f; }
@@ -43,12 +46,13 @@ public class Vida : MonoBehaviour
         }
     }
 
-    public void RecibirDanio(int cantidad)
+    public void RecibirDanio(int cantidad, Transform atacante = null)
     {
         if (EstaMuerto || cantidad <= 0) return;
         if (Time.time < tiempoUltimoGolpe + tiempoDeGracia) return;
 
         tiempoUltimoGolpe = Time.time;
+        UltimoAtacante = atacante;
         VidaActual = Mathf.Max(0, VidaActual - cantidad);
 
         if (AlCambiar != null) AlCambiar(VidaActual, vidaMaxima);
