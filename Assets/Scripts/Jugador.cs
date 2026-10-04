@@ -69,7 +69,19 @@ public class Jugador : MonoBehaviour
     public bool Agachado { get; private set; }
 
     //cuanto se deja ver ahora mismo (0 = invisible, 1 = a la vista de todos)
+    //la linterna encendida te delata; si no hay linterna el multiplicador es 1
+    private Linterna linterna;
+
     public float Visibilidad
+    {
+        get
+        {
+            float porLaLinterna = linterna != null ? linterna.MultiplicadorVisibilidad : 1f;
+            return VisibilidadPorPostura * porLaLinterna;
+        }
+    }
+
+    float VisibilidadPorPostura
     {
         get
         {
@@ -108,6 +120,8 @@ public class Jugador : MonoBehaviour
         animadorTieneAgachado = TieneParametro(animador, "Agachado");
 
         disparo = GetComponent<Disparo>();
+
+        linterna = GetComponent<Linterna>();
 
         vida = GetComponent<Vida>();
         if (vida != null)
