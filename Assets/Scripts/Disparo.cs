@@ -41,7 +41,7 @@ public class Disparo : MonoBehaviour
     [Header("Proyectil")]
     //lo crea el generador en Assets/Prefabs; si falta, se dispara en modo instantaneo
     public GameObject prefabProyectil;
-    public float velocidadProyectil = 45f;
+    public float velocidadProyectil = 30f;
 
     [Header("Fogonazo")]
     public bool usarFogonazo = true;

@@ -1486,7 +1486,7 @@ public class GeneradorMapa
 
         GameObject temporal = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         temporal.name = "Proyectil";
-        temporal.transform.localScale = Vector3.one * 0.14f;
+        temporal.transform.localScale = Vector3.one * 0.2f;
 
         //el choque lo calcula el script con un SphereCast, el collider sobra
         Object.DestroyImmediate(temporal.GetComponent<Collider>());
@@ -1494,8 +1494,9 @@ public class GeneradorMapa
 
         //estela para que se vea el recorrido de la bala
         TrailRenderer estela = temporal.AddComponent<TrailRenderer>();
-        estela.time = 0.12f;
-        estela.startWidth = 0.1f;
+        estela.time = 0.3f;
+        estela.startWidth = 0.2f;
+        estela.minVertexDistance = 0.05f;
         estela.endWidth = 0f;
         estela.material = ObtenerMaterialTrazo();
         estela.startColor = new Color(1f, 0.85f, 0.4f, 0.9f);

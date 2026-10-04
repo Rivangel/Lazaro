@@ -6,7 +6,7 @@ using UnityEngine;
 public class Proyectil : MonoBehaviour
 {
     [Header("Vuelo")]
-    public float velocidad = 45f;
+    public float velocidad = 30f;
 
     //se destruye sola si no le pega a nada, para no dejar balas volando para siempre
     public float tiempoDeVida = 3f;
