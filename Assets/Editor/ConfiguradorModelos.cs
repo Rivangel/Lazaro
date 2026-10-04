@@ -26,6 +26,21 @@ public static class ConfiguradorModelos
         CarpetaModelos + "/Zombie_Ribcage.fbx",
     };
 
+    //sobrevivientes en los que se convierten los zombies al curarlos (Sam es el jugador)
+    public static readonly string[] ModelosAliado =
+    {
+        CarpetaModelos + "/Characters_Lis.fbx",
+        CarpetaModelos + "/Characters_Matt.fbx",
+        CarpetaModelos + "/Characters_Shaun.fbx",
+    };
+
+    //perros zombi: mas rapidos y con mejor oido que los humanos
+    public static readonly string[] ModelosPerro =
+    {
+        CarpetaModelos + "/Characters_GermanShepherd.fbx",
+        CarpetaModelos + "/Characters_Pug.fbx",
+    };
+
     //animaciones que deben repetirse mientras dure el estado; el resto se reproduce una vez
     static readonly string[] ClipsEnBucle = { "Idle", "Walk", "Run", "Crawl", "Eating" };
 
@@ -55,7 +70,21 @@ public static class ConfiguradorModelos
         CrearCarpetaControladores();
 
         CrearControladorJugador(ModeloJugador);
+        foreach (string ruta in ModelosPerro)
+        {
+            CrearControladorEnemigo(ruta);
+        }
+
         foreach (string ruta in ModelosZombie)
+        {
+            CrearControladorEnemigo(ruta);
+            //variante para los que van arrastrandose por el suelo
+            CrearControladorEnemigo(ruta, true);
+        }
+
+        //los aliados usan los mismos parametros que los zombies (moverse, atacar, golpe y
+        //muerte), asi el script del NPC no cambia al curarlos; de ataque sale el puñetazo
+        foreach (string ruta in ModelosAliado)
         {
             CrearControladorEnemigo(ruta);
         }
@@ -288,10 +317,36 @@ public static class ConfiguradorModelos
         controlador.AddParameter("Golpe", AnimatorControllerParameterType.Trigger);
         controlador.AddParameter("Morir", AnimatorControllerParameterType.Trigger);
         controlador.AddParameter("Revivir", AnimatorControllerParameterType.Trigger);
+        controlador.AddParameter("Agachado", AnimatorControllerParameterType.Bool);
+        controlador.AddParameter("Golpear", AnimatorControllerParameterType.Trigger);
 
         AnimatorStateMachine maquina = controlador.layers[0].stateMachine;
         AnimatorState movimiento = CrearEstadoMovimiento(controlador, clips, true);
         maquina.defaultState = movimiento;
+
+        //agachado y quieto se queda en cuclillas; si camina agachado usa la animacion de caminar
+        AnimationClip clipAgachado = BuscarClip(clips, "Duck");
+        if (clipAgachado != null)
+        {
+            AnimatorState agachado = maquina.AddState("Agachado");
+            agachado.motion = clipAgachado;
+
+            AnimatorStateTransition aAgachado = movimiento.AddTransition(agachado);
+            aAgachado.hasExitTime = false;
+            aAgachado.duration = 0.15f;
+            aAgachado.AddCondition(AnimatorConditionMode.If, 0f, "Agachado");
+            aAgachado.AddCondition(AnimatorConditionMode.Less, 0.1f, "Velocidad");
+
+            AnimatorStateTransition aLevantarse = agachado.AddTransition(movimiento);
+            aLevantarse.hasExitTime = false;
+            aLevantarse.duration = 0.15f;
+            aLevantarse.AddCondition(AnimatorConditionMode.IfNot, 0f, "Agachado");
+
+            AnimatorStateTransition aCaminar = agachado.AddTransition(movimiento);
+            aCaminar.hasExitTime = false;
+            aCaminar.duration = 0.15f;
+            aCaminar.AddCondition(AnimatorConditionMode.Greater, 0.1f, "Velocidad");
+        }
 
         AnimationClip clipSalto = BuscarClip(clips, "Jump_Idle", "Jump");
         if (clipSalto != null)
@@ -312,12 +367,36 @@ public static class ConfiguradorModelos
             aSuelo.AddCondition(AnimatorConditionMode.If, 0f, "EnSuelo");
         }
 
+        //golpe cuerpo a cuerpo con el cuchillo
+        AnimationClip clipCuchillo = BuscarClip(clips, "Slash", "Stab", "Punch");
+        if (clipCuchillo != null)
+        {
+            AnimatorState golpear = maquina.AddState("Cuerpo a cuerpo");
+            golpear.motion = clipCuchillo;
+
+            AnimatorStateTransition aGolpear = movimiento.AddTransition(golpear);
+            aGolpear.hasExitTime = false;
+            aGolpear.duration = 0.05f;
+            aGolpear.AddCondition(AnimatorConditionMode.If, 0f, "Golpear");
+
+            //vuelve solo cuando termina la animacion del golpe
+            AnimatorStateTransition deGolpear = golpear.AddTransition(movimiento);
+            deGolpear.hasExitTime = true;
+            deGolpear.exitTime = 0.85f;
+            deGolpear.duration = 0.1f;
+        }
+
         AgregarGolpeYMuerte(maquina, clips, movimiento);
         EditorUtility.SetDirty(controlador);
     }
 
     //Enemigo: movimiento, ataque cuando alcanza al jugador, golpe y muerte
     static void CrearControladorEnemigo(string rutaModelo)
+    {
+        CrearControladorEnemigo(rutaModelo, false);
+    }
+
+    static void CrearControladorEnemigo(string rutaModelo, bool arrastrandose)
     {
         AnimationClip[] clips = CargarClips(rutaModelo);
         if (clips.Length == 0)
@@ -326,7 +405,9 @@ public static class ConfiguradorModelos
             return;
         }
 
-        AnimatorController controlador = CrearControladorVacio(NombreControlador(rutaModelo));
+        string nombre = NombreControlador(rutaModelo) + (arrastrandose ? SufijoArrastrandose : "");
+
+        AnimatorController controlador = CrearControladorVacio(nombre);
         controlador.AddParameter("Velocidad", AnimatorControllerParameterType.Float);
         controlador.AddParameter("Atacando", AnimatorControllerParameterType.Bool);
         controlador.AddParameter("Golpe", AnimatorControllerParameterType.Trigger);
@@ -334,7 +415,7 @@ public static class ConfiguradorModelos
         controlador.AddParameter("Revivir", AnimatorControllerParameterType.Trigger);
 
         AnimatorStateMachine maquina = controlador.layers[0].stateMachine;
-        AnimatorState movimiento = CrearEstadoMovimiento(controlador, clips, false);
+        AnimatorState movimiento = CrearEstadoMovimiento(controlador, clips, false, arrastrandose);
         maquina.defaultState = movimiento;
 
         //no todos los zombies traen animacion de ataque, por eso las alternativas
@@ -363,7 +444,8 @@ public static class ConfiguradorModelos
     //Se salen de la muerte solo con el trigger Revivir, que dispara el script al reaparecer.
     static void AgregarGolpeYMuerte(AnimatorStateMachine maquina, AnimationClip[] clips, AnimatorState movimiento)
     {
-        AnimationClip clipGolpe = BuscarClip(clips, "HitReact");
+        //los perros llaman distinto a la reaccion al golpe
+        AnimationClip clipGolpe = BuscarClip(clips, "HitReact", "Idle_HitReact_Left", "Idle_HitReact_Right");
         if (clipGolpe != null)
         {
             AnimatorState golpe = maquina.AddState("Golpe");
@@ -404,11 +486,29 @@ public static class ConfiguradorModelos
     //arbol que mezcla quieto -> caminar -> correr con el parametro Velocidad
     static AnimatorState CrearEstadoMovimiento(AnimatorController controlador, AnimationClip[] clips, bool conArma)
     {
+        return CrearEstadoMovimiento(controlador, clips, conArma, false);
+    }
+
+    static AnimatorState CrearEstadoMovimiento(AnimatorController controlador, AnimationClip[] clips,
+                                               bool conArma, bool arrastrandose)
+    {
         BlendTree arbol;
         AnimatorState estado = controlador.CreateBlendTreeInController("Movimiento", out arbol, 0);
         arbol.blendType = BlendTreeType.Simple1D;
         arbol.blendParameter = "Velocidad";
         arbol.useAutomaticThresholds = false;
+
+        //arrastrandose no hay andar ni correr: Crawl sirve para todo el recorrido
+        if (arrastrandose)
+        {
+            AnimationClip gateo = BuscarClip(clips, "Crawl", "Walk", "Idle");
+            AnimationClip parado = BuscarClip(clips, "Crawl", "Idle");
+
+            if (parado != null) arbol.AddChild(parado, 0f);
+            if (gateo != null) arbol.AddChild(gateo, 0.5f);
+            if (gateo != null) arbol.AddChild(gateo, 1f);
+            return estado;
+        }
 
         //con arma se prefieren las variantes _Gun, que dejan al personaje apuntando
         AnimationClip quieto = conArma ? BuscarClip(clips, "Idle_Gun", "Idle") : BuscarClip(clips, "Idle");
@@ -477,12 +577,21 @@ public static class ConfiguradorModelos
         }
     }
 
+    //sufijo del controller de los zombies que se arrastran
+    public const string SufijoArrastrandose = "_Arrastrandose";
+
     public static string NombreControlador(string rutaModelo)
     {
         return "Controlador_" + Path.GetFileNameWithoutExtension(rutaModelo);
     }
 
     //devuelve el Animator Controller ya creado para ese modelo
+    public static RuntimeAnimatorController CargarControladorArrastrandose(string rutaModelo)
+    {
+        string ruta = CarpetaControladores + "/" + NombreControlador(rutaModelo) + SufijoArrastrandose + ".controller";
+        return AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(ruta);
+    }
+
     public static RuntimeAnimatorController CargarControlador(string rutaModelo)
     {
         string ruta = CarpetaControladores + "/" + NombreControlador(rutaModelo) + ".controller";

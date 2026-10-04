@@ -6,7 +6,7 @@ using UnityEngine;
 public class Proyectil : MonoBehaviour
 {
     [Header("Vuelo")]
-    public float velocidad = 45f;
+    public float velocidad = 30f;
 
     //se destruye sola si no le pega a nada, para no dejar balas volando para siempre
     public float tiempoDeVida = 3f;
@@ -20,13 +20,16 @@ public class Proyectil : MonoBehaviour
     public float duracionDestello = 0.05f;
 
     private int danio = 1;
+    //true = dardo de suero: cura zombies en vez de herirlos
+    private bool esSuero;
     private Transform duenio;
     private float tiempoDeMuerte;
 
     //lo llama el arma justo despues de instanciar la bala
-    public void Lanzar(Vector3 direccion, int danioDelDisparo, Transform quienDispara, float velocidadDeseada)
+    public void Lanzar(Vector3 direccion, int danioDelDisparo, Transform quienDispara, float velocidadDeseada, bool dardoDeSuero = false)
     {
         danio = danioDelDisparo;
+        esSuero = dardoDeSuero;
         duenio = quienDispara;
         velocidad = velocidadDeseada;
 
@@ -83,11 +86,7 @@ public class Proyectil : MonoBehaviour
 
     void Impactar(RaycastHit impacto)
     {
-        Vida vida = impacto.collider.GetComponentInParent<Vida>();
-        if (vida != null)
-        {
-            vida.RecibirDanio(danio);
-        }
+        Disparo.AplicarImpacto(impacto.collider, danio, esSuero, duenio);
 
         CrearDestello(impacto.point);
         Destroy(gameObject);

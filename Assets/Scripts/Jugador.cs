@@ -8,8 +8,32 @@ public class Jugador : MonoBehaviour
     public float velocidadCorriendo = 10f;
     public KeyCode teclaCorrer = KeyCode.LeftShift;
 
+    [Header("Sigilo")]
+    //agacharse es lento pero silencioso y los zombies te ven mucho mas cerca
+    public KeyCode teclaAgacharse = KeyCode.C;
+    public float velocidadAgachado = 2.5f;
+
+    //multiplica el radio de vista de los zombies segun como se mueva el jugador
+    public float visibilidadAgachado = 0.35f;
+    public float visibilidadQuieto = 0.5f;
+    public float visibilidadCaminando = 0.65f;
+    public float visibilidadCorriendo = 1f;
+
+    //radio en el que se oyen los pasos; agachado no hace ruido
+    public float ruidoCaminando = 3f;
+    public float ruidoCorriendo = 9f;
+    public float ruidoAterrizaje = 6f;
+    public float tiempoEntrePasos = 0.45f;
+
     //que tan rapido gira el personaje hacia la direccion en la que camina
     public float velocidadGiro = 12f;
+
+    [Header("Apuntado")]
+    //despues de disparar el personaje sigue mirando hacia la mira este tiempo,
+    //aunque corra en otra direccion, en vez de voltearse a cada disparo
+    public float tiempoApuntando = 0.8f;
+    //giro hacia la mira: rapido pero suavizado, para que no sea un salto de golpe
+    public float velocidadGiroApuntando = 20f;
 
     [Header("Salto y gravedad")]
     public float fuerzaSalto = 8f;
@@ -40,9 +64,44 @@ public class Jugador : MonoBehaviour
     private Vector3 puntoInicio;
     private float velocidadAnimada;
     private bool muerto;
+    private bool estabaEnElSuelo = true;
+    private float tiempoSiguientePaso;
+    private bool animadorTieneAgachado;
+    private float apuntarHasta;
 
     //direccion horizontal en la que se movio el jugador este frame (la usan otros scripts)
     public Vector3 DireccionMovimiento { get; private set; }
+
+    public enum Postura { Quieto, Agachado, Caminando, Corriendo }
+    public Postura PosturaActual { get; private set; }
+    public bool Agachado { get; private set; }
+
+    //cuanto se deja ver ahora mismo (0 = invisible, 1 = a la vista de todos)
+    //la linterna encendida te delata; si no hay linterna el multiplicador es 1
+    private Linterna linterna;
+
+    public float Visibilidad
+    {
+        get
+        {
+            float porLaLinterna = linterna != null ? linterna.MultiplicadorVisibilidad : 1f;
+            return VisibilidadPorPostura * porLaLinterna;
+        }
+    }
+
+    float VisibilidadPorPostura
+    {
+        get
+        {
+            switch (PosturaActual)
+            {
+                case Postura.Agachado: return visibilidadAgachado;
+                case Postura.Caminando: return visibilidadCaminando;
+                case Postura.Corriendo: return visibilidadCorriendo;
+                default: return visibilidadQuieto;
+            }
+        }
+    }
 
     void Start()
     {
@@ -65,7 +124,12 @@ public class Jugador : MonoBehaviour
             animador = GetComponentInChildren<Animator>();
         }
 
+        //si el Animator Controller es viejo y no tiene el parametro, no se le manda
+        animadorTieneAgachado = TieneParametro(animador, "Agachado");
+
         disparo = GetComponent<Disparo>();
+
+        linterna = GetComponent<Linterna>();
 
         vida = GetComponent<Vida>();
         if (vida != null)
@@ -88,12 +152,22 @@ public class Jugador : MonoBehaviour
     {
         //mientras esta muerto no se mueve ni dispara, solo espera a reaparecer
         if (muerto) return;
+        if (ControlPartida.instancia != null && ControlPartida.instancia.PartidaTerminada) return;
 
         Movimiento();
         RevisarCaida();
     }
 
-    //gira al personaje de golpe hacia una direccion (lo usa el disparo al apuntar)
+    //mientras apunta, el personaje mira hacia la camara en vez de hacia donde camina
+    public bool Apuntando { get { return Time.time < apuntarHasta; } }
+
+    //lo llama el disparo: empieza (o alarga) el tiempo en que se mira hacia la mira
+    public void Apuntar()
+    {
+        apuntarHasta = Time.time + tiempoApuntando;
+    }
+
+    //gira al personaje de golpe hacia una direccion (lo usa el cuerpo a cuerpo)
     public void MirarHacia(Vector3 direccion)
     {
         if (direccion.sqrMagnitude < 0.01f) return;
@@ -134,6 +208,7 @@ public class Jugador : MonoBehaviour
     public void Revivir()
     {
         muerto = false;
+        Agachado = false;
         velocidadAnimada = 0f;
 
         Reiniciar();
@@ -169,16 +244,35 @@ public class Jugador : MonoBehaviour
 
         DireccionMovimiento = direccion;
 
+        if (Input.GetKeyDown(teclaAgacharse)) Agachado = !Agachado;
+
+        //correr te levanta
         bool corriendo = Input.GetKey(teclaCorrer);
-        float velocidadActual = corriendo ? velocidadCorriendo : velocidad;
+        if (corriendo) Agachado = false;
+
+        float velocidadActual = Agachado ? velocidadAgachado : (corriendo ? velocidadCorriendo : velocidad);
         controller.Move(direccion * velocidadActual * Time.deltaTime);
 
-        //girar el personaje hacia donde camina
-        if (direccion.sqrMagnitude > 0.01f)
+        bool seMueve = direccion.sqrMagnitude > 0.01f;
+        if (Agachado) PosturaActual = Postura.Agachado;
+        else if (!seMueve) PosturaActual = Postura.Quieto;
+        else PosturaActual = corriendo ? Postura.Corriendo : Postura.Caminando;
+
+        //girar el personaje hacia donde camina, o hacia la mira si acaba de disparar
+        Vector3 mirarA = direccion;
+        float giro = velocidadGiro;
+        if (Apuntando && camara != null)
+        {
+            mirarA = camara.forward;
+            mirarA.y = 0f;
+            giro = velocidadGiroApuntando;
+        }
+
+        if (mirarA.sqrMagnitude > 0.01f)
         {
             Transform aGirar = visual != null ? visual : transform;
-            Quaternion rotacionDeseada = Quaternion.LookRotation(direccion);
-            aGirar.rotation = Quaternion.Slerp(aGirar.rotation, rotacionDeseada, velocidadGiro * Time.deltaTime);
+            Quaternion rotacionDeseada = Quaternion.LookRotation(mirarA.normalized);
+            aGirar.rotation = Quaternion.Slerp(aGirar.rotation, rotacionDeseada, giro * Time.deltaTime);
         }
 
         //si esta en el suelo se resetea la velocidad vertical para que no se acumule
@@ -191,12 +285,35 @@ public class Jugador : MonoBehaviour
         if (salto)
         {
             velocidadVertical.y = fuerzaSalto;
+            Agachado = false;
         }
 
         velocidadVertical.y += gravedad * Time.deltaTime;
         controller.Move(velocidadVertical * Time.deltaTime);
 
-        Animar(direccion, corriendo, salto);
+        HacerRuido();
+        Animar(direccion, corriendo && !Agachado, salto);
+    }
+
+    //los pasos y los aterrizajes avisan a los zombies cercanos
+    void HacerRuido()
+    {
+        bool enSuelo = controller.isGrounded;
+        if (enSuelo && !estabaEnElSuelo)
+        {
+            Ruido.Emitir(transform.position, ruidoAterrizaje, true);
+        }
+        estabaEnElSuelo = enSuelo;
+
+        if (!enSuelo || Time.time < tiempoSiguientePaso) return;
+
+        float radio = 0f;
+        if (PosturaActual == Postura.Caminando) radio = ruidoCaminando;
+        else if (PosturaActual == Postura.Corriendo) radio = ruidoCorriendo;
+        if (radio <= 0f) return;
+
+        tiempoSiguientePaso = Time.time + tiempoEntrePasos;
+        Ruido.Emitir(transform.position, radio, true);
     }
 
     //pasa el estado del movimiento al Animator
@@ -210,8 +327,20 @@ public class Jugador : MonoBehaviour
 
         animador.SetFloat("Velocidad", velocidadAnimada);
         animador.SetBool("EnSuelo", controller.isGrounded);
+        if (animadorTieneAgachado) animador.SetBool("Agachado", Agachado);
 
         if (salto) animador.SetTrigger("Saltar");
+    }
+
+    static bool TieneParametro(Animator animador, string nombre)
+    {
+        if (animador == null || animador.runtimeAnimatorController == null) return false;
+
+        foreach (AnimatorControllerParameter parametro in animador.parameters)
+        {
+            if (parametro.name == nombre) return true;
+        }
+        return false;
     }
 
     void RevisarCaida()

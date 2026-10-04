@@ -11,7 +11,11 @@ public class CamaraSeguimiento : MonoBehaviour
 
     [Header("Distancia")]
     public float distancia = 8f;
-    public float suavizado = 12f;
+
+    //que tan rapido se acerca al chocar con una pared y que tan rapido vuelve a alejarse;
+    //alejarse va mas lento para que no rebote si la pared aparece y desaparece
+    public float suavizadoAcercar = 20f;
+    public float suavizadoAlejar = 4f;
 
     [Header("Mouse")]
     public bool usarMouse = true;
@@ -25,8 +29,13 @@ public class CamaraSeguimiento : MonoBehaviour
     public bool evitarParedes = true;
     public LayerMask capasQueBloquean = ~0;
 
+    //grosor del "rayo" de colision; una esfera evita que se cuele por rendijas
+    public float radioColision = 0.25f;
+    public float distanciaMinima = 1f;
+
     private float anguloHorizontal;
     private float anguloVertical = 20f;
+    private float distanciaActual;
 
     void Start()
     {
@@ -37,6 +46,7 @@ public class CamaraSeguimiento : MonoBehaviour
         }
 
         anguloHorizontal = transform.eulerAngles.y;
+        distanciaActual = distancia;
 
         if (bloquearCursor && usarMouse)
         {
@@ -49,29 +59,52 @@ public class CamaraSeguimiento : MonoBehaviour
     {
         if (objetivo == null) return;
 
-        if (usarMouse)
+        //al terminar la partida el cursor queda libre para la pantalla final
+        bool partidaTerminada = ControlPartida.instancia != null && ControlPartida.instancia.PartidaTerminada;
+
+        if (usarMouse && !partidaTerminada)
         {
             anguloHorizontal += Input.GetAxis("Mouse X") * sensibilidad;
             anguloVertical -= Input.GetAxis("Mouse Y") * sensibilidad;
             anguloVertical = Mathf.Clamp(anguloVertical, anguloMinimo, anguloMaximo);
         }
 
+        //La camara va pegada al jugador, sin retraso: si se suavizara la posicion, al
+        //correr se quedaria atras y la distancia cambiaria con la velocidad.
+        //Lo unico que se suaviza es la distancia, para acercarse al chocar con paredes.
         Vector3 puntoMirada = objetivo.position + Vector3.up * alturaMirada;
         Quaternion rotacion = Quaternion.Euler(anguloVertical, anguloHorizontal, 0f);
-        Vector3 posicionDeseada = puntoMirada - rotacion * Vector3.forward * distancia;
+        Vector3 haciaAtras = rotacion * Vector3.back;
 
-        //si hay algo entre el jugador y la camara, acercar la camara
-        if (evitarParedes)
+        float distanciaDeseada = evitarParedes ? DistanciaLibre(puntoMirada, haciaAtras) : distancia;
+
+        float velocidad = distanciaDeseada < distanciaActual ? suavizadoAcercar : suavizadoAlejar;
+        distanciaActual = Mathf.Lerp(distanciaActual, distanciaDeseada, velocidad * Time.deltaTime);
+
+        transform.position = puntoMirada + haciaAtras * distanciaActual;
+        transform.rotation = Quaternion.LookRotation(puntoMirada - transform.position);
+    }
+
+    //Hasta donde puede alejarse la camara sin meterse en una pared. Los personajes
+    //no cuentan: si un zombie o un aliado corre detras del jugador, la camara no
+    //debe saltar hacia adelante cada vez que se cruza.
+    float DistanciaLibre(Vector3 origen, Vector3 direccion)
+    {
+        float libre = distancia;
+
+        RaycastHit[] tocados = Physics.SphereCastAll(origen, radioColision, direccion, distancia,
+                                                     capasQueBloquean, QueryTriggerInteraction.Ignore);
+        foreach (RaycastHit tocado in tocados)
         {
-            Vector3 direccion = (posicionDeseada - puntoMirada).normalized;
-            RaycastHit hit;
-            if (Physics.Raycast(puntoMirada, direccion, out hit, distancia, capasQueBloquean, QueryTriggerInteraction.Ignore))
-            {
-                posicionDeseada = hit.point - direccion * 0.3f;
-            }
+            if (tocado.collider is CharacterController) continue;
+            if (tocado.transform.IsChildOf(objetivo)) continue;
+
+            //distance 0 = la esfera ya empezaba tocando algo; eso no es una pared detras
+            if (tocado.distance <= 0f) continue;
+
+            libre = Mathf.Min(libre, tocado.distance);
         }
 
-        transform.position = Vector3.Lerp(transform.position, posicionDeseada, suavizado * Time.deltaTime);
-        transform.LookAt(puntoMirada);
+        return Mathf.Max(distanciaMinima, libre);
     }
 }

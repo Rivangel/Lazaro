@@ -1,8 +1,14 @@
 # Lázaro
 
-Juego de acción en tercera persona hecho en Unity. Recorres un pueblo invadido por zombies, disparas para sobrevivir y vuelves a aparecer cada vez que caes.
+Juego de acción y sigilo en tercera persona hecho en Unity. Estás atrapado en un pueblo invadido por zombies, pero los zombies son personas y tienes un suero que puede devolverlas a la vida (de ahí el nombre).
 
-> **En desarrollo.** La idea es que el juego no se trate de matar zombies, sino de curarlos y devolverlos a la vida (de ahí el nombre).
+## Cómo se juega
+
+- **Objetivo:** encuentra las 4 piezas repartidas por el pueblo (rueda, bidón de gasolina, tubo de escape y caja de herramientas), repara la camioneta marcada con luz amarilla y huye.
+- **Curar en vez de matar:** el suero (dardo verde) convierte a un zombie en un sobreviviente que te sigue y pelea a tu lado. Hay pocas dosis, pero encontrarás frascos verdes por el mapa. Si a un aliado lo matan, vuelve a ser zombie.
+- **Sigilo o escándalo:** los zombies te ven según cómo te muevas (agachado casi no te ven, corriendo te ven de lejos) y oyen todo lo que hace ruido: disparos, pasos, saltos. El suero casi no suena y las balas se oyen en medio pueblo. Las paredes tapan la vista, pero no el ruido.
+- **Distracciones:** lanza una piedra y los zombies irán a revisar dónde cayó.
+- **El final:** reparar la camioneta hace muchísimo ruido y atrae a los zombies cercanos. Los aliados que estén cerca al arrancar escapan contigo y cuentan en el resumen final.
 
 ## Controles
 
@@ -10,9 +16,14 @@ Juego de acción en tercera persona hecho en Unity. Recorres un pueblo invadido 
 |---|---|
 | Moverse | `W` `A` `S` `D` / flechas |
 | Correr | `Shift` izquierdo |
+| Agacharse (sigilo) | `C` |
 | Saltar | `Espacio` |
 | Mirar / apuntar | Mouse |
 | Disparar | Clic izquierdo / `Ctrl` izquierdo |
+| Balas / Suero | `1` / `2` (o `Q` para alternar) |
+| Lanzar piedra | `G` |
+| Reparar la camioneta | Mantener `E` |
+| Jugar otra vez (al ganar) | `R` |
 
 ## Requisitos
 
@@ -27,22 +38,26 @@ Juego de acción en tercera persona hecho en Unity. Recorres un pueblo invadido 
 2. Abre la carpeta con Unity Hub (**Add project from disk**). La primera vez tarda un poco porque Unity regenera la carpeta `Library/`.
 3. Si la escena está vacía o algo falla, usa el menú **Practica1**:
    - **1 - Configurar Modelos**: prepara los FBX, los rigs y los Animator Controllers.
-   - **2 - Generar Mapa**: arma la escena con el jugador, los zombies, la cámara y la interfaz.
-4. Abre `Assets/Scenes/SampleScene.unity` y presiona **Play**.
+   - **2 - Generar Mapa**: arma la escena con el jugador, los zombies, las piezas, el suero, la camioneta, la cámara y la interfaz.
+4. Abre `Assets/Scenes/SampleScene.unity`, guárdala y presiona **Play**. Guárdala antes de generar el mapa para que se agregue a Build Settings y funcione el reinicio con `R`.
 
 ## Estructura
 
 ```
 Assets/
 ├── Scripts/       Lógica del juego
-│   ├── Jugador.cs            Movimiento, salto, muerte y reaparición
-│   ├── Npc.cs                IA de los zombies (pasear, perseguir, atacar)
-│   ├── Vida.cs               Vida compartida por jugador y zombies
-│   ├── Disparo.cs            Disparo instantáneo o con proyectil
-│   ├── Proyectil.cs          Bala que viaja y detecta impactos
+│   ├── Jugador.cs            Movimiento, agacharse, pasos ruidosos, muerte y reaparición
+│   ├── Npc.cs                Zombies (vista, oído, investigar, atacar) y aliados curados
+│   ├── Vida.cs               Vida compartida por jugador, zombies y aliados
+│   ├── Disparo.cs            Balas, suero y piedras de distracción
+│   ├── Proyectil.cs          Bala o dardo que viaja y detecta impactos
+│   ├── Ruido.cs              Avisa a los zombies de cada ruido y su alcance
+│   ├── Distraccion.cs        Piedra que hace ruido donde cae
+│   ├── Recogible.cs          Piezas del vehículo y dosis de suero
+│   ├── VehiculoEscape.cs     Reparación de la camioneta y huida
 │   ├── CamaraSeguimiento.cs  Cámara en tercera persona con mouse
-│   ├── ControlPartida.cs     Contadores de la partida
-│   ├── InterfazJuego.cs      Barra de vida y contador
+│   ├── ControlPartida.cs     Piezas, avisos, final de la partida y reinicio
+│   ├── InterfazJuego.cs      Vida, ruido, munición, piezas, aliados y pantalla final
 │   └── Obstaculo.cs          Zonas que regresan al jugador al inicio
 ├── Editor/        Herramientas del menú Practica1
 ├── Modelos/       Personajes, zombies, vehículos y entorno
@@ -55,10 +70,8 @@ Assets/
 
 ## Ideas en camino
 
-- Munición que cura zombies y los convierte en sobrevivientes
-- Ruido y sigilo: disparar atrae zombies
-- Reparar un vehículo para escapar del pueblo
-- Ciclo de día y noche
+- Ciclo de día y noche con farolas que asustan a los zombies
+- Perro compañero que avisa cuando se acercan zombies
 
 ## Créditos
 
