@@ -54,6 +54,8 @@ public class ControlPartida : MonoBehaviour
     {
         instancia = this;
         Time.timeScale = 1f;
+        //la pausa del audio es global y sobrevive al recargar la escena
+        AudioListener.pause = false;
         if (fuenteAudio == null) fuenteAudio = GetComponent<AudioSource>();
     }
 
@@ -122,7 +124,21 @@ public class ControlPartida : MonoBehaviour
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
-        if (fuenteAudio != null && sonidoVictoria != null) fuenteAudio.PlayOneShot(sonidoVictoria);
+        SonarSoloVictoria();
+    }
+
+    //Pausa todo el audio de la escena (ambiente, zombies, pasos...) y deja sonar
+    //solo la musica del final, que ignora la pausa.
+    void SonarSoloVictoria()
+    {
+        AudioListener.pause = true;
+
+        if (fuenteAudio == null || sonidoVictoria == null) return;
+
+        fuenteAudio.ignoreListenerPause = true;
+        //corta lo que estuviera sonando en esta fuente, como la moneda de la ultima pieza
+        fuenteAudio.Stop();
+        fuenteAudio.PlayOneShot(sonidoVictoria);
     }
 
     //El generador agrega la escena a Build Settings, que es lo que pide LoadScene.
@@ -136,6 +152,7 @@ public class ControlPartida : MonoBehaviour
         }
 
         Time.timeScale = 1f;
+        AudioListener.pause = false;
         SceneManager.LoadScene(indice);
     }
 }
