@@ -28,6 +28,13 @@ public class Jugador : MonoBehaviour
     //que tan rapido gira el personaje hacia la direccion en la que camina
     public float velocidadGiro = 12f;
 
+    [Header("Apuntado")]
+    //despues de disparar el personaje sigue mirando hacia la mira este tiempo,
+    //aunque corra en otra direccion, en vez de voltearse a cada disparo
+    public float tiempoApuntando = 0.8f;
+    //giro hacia la mira: rapido pero suavizado, para que no sea un salto de golpe
+    public float velocidadGiroApuntando = 20f;
+
     [Header("Salto y gravedad")]
     public float fuerzaSalto = 8f;
     public float gravedad = -20f;
@@ -60,6 +67,7 @@ public class Jugador : MonoBehaviour
     private bool estabaEnElSuelo = true;
     private float tiempoSiguientePaso;
     private bool animadorTieneAgachado;
+    private float apuntarHasta;
 
     //direccion horizontal en la que se movio el jugador este frame (la usan otros scripts)
     public Vector3 DireccionMovimiento { get; private set; }
@@ -150,7 +158,16 @@ public class Jugador : MonoBehaviour
         RevisarCaida();
     }
 
-    //gira al personaje de golpe hacia una direccion (lo usa el disparo al apuntar)
+    //mientras apunta, el personaje mira hacia la camara en vez de hacia donde camina
+    public bool Apuntando { get { return Time.time < apuntarHasta; } }
+
+    //lo llama el disparo: empieza (o alarga) el tiempo en que se mira hacia la mira
+    public void Apuntar()
+    {
+        apuntarHasta = Time.time + tiempoApuntando;
+    }
+
+    //gira al personaje de golpe hacia una direccion (lo usa el cuerpo a cuerpo)
     public void MirarHacia(Vector3 direccion)
     {
         if (direccion.sqrMagnitude < 0.01f) return;
@@ -241,12 +258,21 @@ public class Jugador : MonoBehaviour
         else if (!seMueve) PosturaActual = Postura.Quieto;
         else PosturaActual = corriendo ? Postura.Corriendo : Postura.Caminando;
 
-        //girar el personaje hacia donde camina
-        if (direccion.sqrMagnitude > 0.01f)
+        //girar el personaje hacia donde camina, o hacia la mira si acaba de disparar
+        Vector3 mirarA = direccion;
+        float giro = velocidadGiro;
+        if (Apuntando && camara != null)
+        {
+            mirarA = camara.forward;
+            mirarA.y = 0f;
+            giro = velocidadGiroApuntando;
+        }
+
+        if (mirarA.sqrMagnitude > 0.01f)
         {
             Transform aGirar = visual != null ? visual : transform;
-            Quaternion rotacionDeseada = Quaternion.LookRotation(direccion);
-            aGirar.rotation = Quaternion.Slerp(aGirar.rotation, rotacionDeseada, velocidadGiro * Time.deltaTime);
+            Quaternion rotacionDeseada = Quaternion.LookRotation(mirarA.normalized);
+            aGirar.rotation = Quaternion.Slerp(aGirar.rotation, rotacionDeseada, giro * Time.deltaTime);
         }
 
         //si esta en el suelo se resetea la velocidad vertical para que no se acumule

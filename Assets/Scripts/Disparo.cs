@@ -191,13 +191,8 @@ public class Disparo : MonoBehaviour
             dosisSuero--;
         }
 
-        //el personaje voltea hacia donde apunta la camara al disparar
-        Vector3 direccionPlana = camara.forward;
-        direccionPlana.y = 0f;
-        if (jugador != null && direccionPlana.sqrMagnitude > 0.01f)
-        {
-            jugador.MirarHacia(direccionPlana.normalized);
-        }
+        //el personaje gira (suavizado) hacia la mira y se queda mirando ahi un rato
+        if (jugador != null) jugador.Apuntar();
 
         Reproducir(esSuero ? sonidoSuero : sonidoDisparo);
         if (!esSuero) StartCoroutine(Fogonazo());
